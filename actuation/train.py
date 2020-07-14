@@ -1,36 +1,32 @@
-import os
-import argparse
-import logging
 import tensorflow as tf
 # Import losses:
-from tensorflow.keras.losses import
+from tensorflow.keras.losses import MeanSquaredError
 # Import optimizers:
-from tensorflow.keras.optimizers import
+from tensorflow.keras.optimizers import Adam
 # Import metrics:
 from tensorflow.keras.metrics import (
-  Mean, SparseCategoricalAccuracy
+  Mean, MeanAbsolutePercentageError
 )
 # Import models:
-from models.network import Network
+from models.speednet import SpeedNet
 # Import processing:
 from preprocess.process import Process
 
 
 class Train(object):
     def __init__(self, params):
-        self.lr = params.lr
-        self.epochs = params.epochs
+        self.epochs = 10000
         # Define loss:
-        self.loss_object =
+        self.loss_object = MeanSquaredError()
         # Define optimizer:
-        self.optimizer =
+        self.optimizer = Adam(1e-3)
         # Define metrics for loss:
-        self.train_loss =
-        self.train_accuracy =
-        self.test_loss =
-        self.test_accuracy =
+        self.train_loss = Mean()
+        self.train_accuracy = MeanAbsolutePercentageError()
+        self.test_loss = Mean()
+        self.test_accuracy = MeanAbsolutePercentageError()
         # Define model:
-        self.model = Network()
+        self.speed_net = SpeedNet()
         # Define pre processor (params):
         preprocessor = Process()
         self.train_ds, self.test_ds = preprocessor.get_datasets()
@@ -43,9 +39,9 @@ class Train(object):
 
     # Feed forward through and update model on train data:
     @tf.function
-    def _update(self, inputs, labels):
+    def _update(self, cur_frame, ref_frame, labels):
         with tf.GradientTape() as tape:
-            predictions = self.model(inputs, True)
+            predictions = self.model(cur_frame, ref_frame, True)
             loss = self.loss_object(labels, predictions)
         gradients = tape.gradient(loss, self.model.trainable_variables)
         self.optimizer.apply_gradients(
@@ -55,8 +51,8 @@ class Train(object):
 
     # Feed forward through model on test data:
     @tf.function
-    def _test(self, inputs, labels):
-        predictions = self.model(inputs)
+    def _test(self, cur_frame, ref_frame, labels):
+        predictions = self.model(cur_frame, ref_frame)
         loss = self.loss_object(labels, predictions)
 
         self.test_loss(loss)
@@ -97,24 +93,10 @@ class Train(object):
     def train(self):
         self._restore()
         for epoch in range(self.epochs):
-            for inputs, labels in self.train_ds:
-                self._update(inputs, labels)
-            for testInputs, testLabels in self.test_ds:
-                self._test(testInputs, testLabels)
+            for ref_frame, cur_frame, labels in self.train_ds:
+                self._update(ref_frame, cur_frame, labels)
+            for test_ref_frame, cur_ref_frame, test_labels in self.test_ds:
+                self._test(test_ref_frame, cur_ref_frame, test_labels)
             self._log(epoch)
             self._save()
             self._reset()
-
-
-if __name__ == '__main__':
-    numCkpts = len([folder for folder in os.listdir('./checkpoints') if os.path.isdir(folder)])
-    parser= argparse.ArgumentParser()
-    parser.add_argument('--lr', default=1e-4, type=float)
-    parser.add_argument('--epochs', default=10000, type=int)
-    parser.add_argument('--ckpt_dir', default=str(numCkpts), type=str)
-    parser.add_argument('--data_dir', default='./data/train', type=str)
-    parser.add_argument('--batch_size', default=32, type=int)
-    parser.add_argument('--pre_fetch', default=1, type=int)
-    args = parser.parse_args()
-    actuator = Train(args)
-    actuator.train()
