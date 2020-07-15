@@ -11,10 +11,11 @@ from tensorflow.keras.metrics import (
 from models.speednet import SpeedNet
 # Import processing:
 from preprocess.process import Process
+import datetime
 
 
 class Train(object):
-    def __init__(self, params):
+    def __init__(self):
         self.epochs = 10000
         # Define loss:
         self.loss_object = MeanSquaredError()
@@ -28,31 +29,32 @@ class Train(object):
         # Define model:
         self.speed_net = SpeedNet()
         # Define pre processor (params):
-        preprocessor = Process()
+        preprocessor = Process(32, 1)
         self.train_ds, self.test_ds = preprocessor.get_datasets()
         # Define Checkpoints:
-        self.ckpt = tf.train.Checkpoint(step=tf.Variable(1), optimizer=self.optimizer,
-                net=self.model)
+        self.ckpt = tf.train.Checkpoint(optimizer=self.optimizer,
+                net=self.speed_net)
         # Define Checkpoint manager:
-        self.ckpt_manager = tf.train.CheckpointManager(self.ckpt, f'checkpoints{params.ckpt_dir}',
+        current_time = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        self.ckpt_manager = tf.train.CheckpointManager(self.ckpt, f'./checkpoints/{current_time}',
                 max_to_keep=3)
 
     # Feed forward through and update model on train data:
     @tf.function
     def _update(self, cur_frame, ref_frame, labels):
         with tf.GradientTape() as tape:
-            predictions = self.model(cur_frame, ref_frame, True)
+            predictions = self.speed_net(cur_frame, ref_frame, True)
             loss = self.loss_object(labels, predictions)
-        gradients = tape.gradient(loss, self.model.trainable_variables)
+        gradients = tape.gradient(loss, self.speed_net.trainable_variables)
         self.optimizer.apply_gradients(
-            zip(gradients, self.model.trainable_variables))
+            zip(gradients, self.speed_net.trainable_variables))
         self.train_loss(loss)
         self.train_accuracy(labels, predictions)
 
     # Feed forward through model on test data:
     @tf.function
     def _test(self, cur_frame, ref_frame, labels):
-        predictions = self.model(cur_frame, ref_frame)
+        predictions = self.speed_net(cur_frame, ref_frame)
         loss = self.loss_object(labels, predictions)
 
         self.test_loss(loss)
@@ -69,7 +71,7 @@ class Train(object):
 
     # Save model to checkpoint:
     def _save(self, verbose=False):
-        save_path = self.ckpt_manager.save()]
+        save_path = self.ckpt_manager.save()
         if verbose:
             ckptLog = f"Saved checkpoint for step {int(self.ckpt.step)}: {save_path}"
             print(ckptLog)
@@ -100,3 +102,8 @@ class Train(object):
             self._log(epoch)
             self._save()
             self._reset()
+
+
+if __name__ == "__main__":
+    t = Train()
+    t.train()

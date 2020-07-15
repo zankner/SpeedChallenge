@@ -16,8 +16,8 @@ class SpeedNet(Model):
     self.reference_layer = Reference()
     self.current_layer = Current()
 
-    self.dense_0 = Dense(, activation='relu')
-    self.dense_1 = Dense(, activation='relu')
+    self.dense_0 = Dense(128, activation='relu')
+    self.dense_1 = Dense(64, activation='relu')
     self.dense_2 = Dense(1)
 
     self.norm_0 = BatchNormalization()
@@ -29,8 +29,8 @@ class SpeedNet(Model):
     # Call layers of network on input x
     # Use the training variable to handle adding layers such as Dropout
     # and Batch Norm only during training
-    ref_vec = self.reference_layer(x)
-    cur_vec = self.current_layer(x)
+    ref_vec = self.reference_layer(ref_frame)
+    cur_vec = self.current_layer(cur_frame)
     x = concatenate(ref_vec, cur_vec)
 
     x = self.dense_0(x)

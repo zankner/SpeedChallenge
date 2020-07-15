@@ -6,10 +6,9 @@ import numpy as np
 
 class Process(object):
 
-    def __init__(self, batch_size, pre_fetch, data_dir):
+    def __init__(self, batch_size, pre_fetch):
         self.batch_size = batch_size
         self.pre_fetch = pre_fetch
-        self.data_dir = data_dir
         self.train_len = int(20400 * .8)
 
     def get_datasets(self):
@@ -36,8 +35,8 @@ class Process(object):
     def _build_dataset(self, ref_frames, cur_frames, labels):
         dataset = tf.data.Dataset.from_tensor_slices((ref_frames, cur_frames, labels))
         dataset = dataset.map(self._load_img, num_parallel_calls=tf.data.experimental.AUTOTUNE)
-        train_dataset = dataset.take(self.train_len)
-        val_dataset = dataset.skip(self.train_len)
+        train_dataset = dataset.take(self.train_len).shuffle(self.train_len).batch(self.batch_size)
+        val_dataset = dataset.skip(self.train_len).batch(self.batch_size)
         return train_dataset, val_dataset
 
     @tf.function
@@ -79,12 +78,3 @@ class Process(object):
         # Add code to load input and label file:
 
         return input_, label
-
-p = Process(32,1, 'data')
-d, v = p.get_datasets()
-d = d.take(1)
-for el in d:
-    print(el)
-v = v.take(1)
-for el in v:
-    print(el)

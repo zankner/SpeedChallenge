@@ -11,9 +11,9 @@ class Current(Layer):
   def __init__(self):
     super(Current, self).__init__()
     # Define layers of the network:
-    self.conv_0 = Conv2D(, activation='relu')
-    self.conv_1 = Conv2D(, activation='relu')
-    self.conv_2 = Conv2D(, activation='relu')
+    self.conv_0 = Conv2D(256, 2, activation='relu')
+    self.conv_1 = Conv2D(128, 2, activation='relu')
+    self.conv_2 = Conv2D(64, 2, activation='relu')
 
     self.pool_0 = MaxPool2D()
 
